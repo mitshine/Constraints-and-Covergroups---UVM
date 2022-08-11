@@ -1,0 +1,152 @@
+How to write constraints:
+
+class packet;
+  rand int i;
+  constraint c_legal_value {
+    i > 0;
+    i < 100;
+  }
+  constraint c_by_5 {
+    (i%5) == 0;
+  }
+  constraint c_dist {
+    i dist {
+      [0:10] := 2,
+      [11:20] := 4,
+      [21:30] := 6,
+      [31:40] := 8,
+      [41:50] := 10,
+      [51:60] := 10,
+      [61:70] := 8,
+      [71:80] := 6,
+      [81:90] := 4,
+      [91:100] := 2
+    };
+  };
+endclass
+
+How to write covergroup for functional coverage inside packet:
+
+class packet;
+  rand bit [3:0] mode;
+  rand bit [1:0] key;
+
+  function display();
+    $display();
+  endfunction
+
+  covergroup CovGrp;
+    coverpoint mode {
+      bins featureA = {0};
+      bins featureB = {[1:3]};
+      bins common [] = {4:$};
+      bins reserve = default;
+    }
+    coverpoint key;
+  endgroup
+endclass
+
+How to write covergroup for functional coverage in separate class:
+
+class myCov;
+  covergroup CovGrp;
+
+  endgroup
+
+  function new();
+    CovGrp = new;
+  endfunction
+endclass
+
+module tb;
+  myCov coverage_inst = new();
+  initial begin
+    coverage_inst.CovGrp.sample();
+    covergoup CovGrp @ (posedge clk); // Sample coverpoints at posedge clk
+    covergroup CovGrp @ (eventA); // eventA can be triggered with -> eventA;
+
+    #1 if(reset == 0)
+      coverage_inst.stop();
+    #10 if(reset = 1)
+      coverage_inst.start();
+  end
+endmodule
+
+How to write covergroup and how to use different options:
+
+options:
+weight = 1;
+name = "This is a name";
+per_instance = boolean; // default value = false/0
+goal = 90;
+comment = "This is a comment";
+at_least = 1;
+detect_overlap = boolean; // default value = false/0
+auto_bin_max = 64;
+cross_auto_bin_max = integer value;
+cross_num_print_missing = 0;
+
+type_options:
+strobe = 0;
+
+int i_a, i_b, i_c;
+
+covergroup cg @(posedge clock);
+  option.auto_bin_max = 10;
+  a : coverpoint i_a;
+  b : coverpoint i_b;
+  c : coverpoint i_c { option.auto_bin_max = 20; }
+endgroup
+
+cg cg_inst = new;
+cg_inst.a.option.weight = 2;
+
+How to write covergroup specific to options:
+
+module func_coverage;
+  bit [7:0] addr, data;
+  covergroup c_group;
+    option.per_instance = 1;
+    option.comment = "This is the comment";
+    
+    cp1: coverpoint addr {
+      option.weight = 2;
+      option.auto_bin_max = 32;
+    }
+    cp2: coverpoint data;
+    cp1_X_cp2: cross cp1, cp2 {
+      option.cross_auto_bin_max = 32;
+    }
+  endgroup : c_group
+
+  c_group cg = new();
+  
+  initial begin  
+    forever begin
+      cg.sample();
+      #5;
+    end
+  end
+  
+  initial begin
+    $monitor("At time = %0t: addr = %0d, data = %0d", $time, addr, data);
+    repeat(5) begin
+      addr = $random;
+      data = $random;
+      #5;
+    end
+    $display("Coverage = %f", cg.get_coverage());
+    $finish;
+  end
+  
+endmodule
+
+How to write covergroup and how to use enum:
+
+enum {Red, Green, Blue} Color;
+
+covergroup cg_color @(posedge clock);
+  coverpoint color;
+endgroup
+
+cg_color = new cg_inst;
